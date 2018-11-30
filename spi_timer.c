@@ -1,4 +1,8 @@
+
+
 /*
+
+http://www.chiark.greenend.org.uk/doc/linux-doc-2.6.32/html/device-drivers/ch01s03.html
 
 Improving the kernel timers API:
 https://lwn.net/Articles/735887/
@@ -31,11 +35,15 @@ setup_timer() macro:
 #include <linux/sched/signal.h>
 
 #include <linux/timer.h>
+#include <linux/jiffies.h>
 
 #include "spi_timer.h"
 
 struct timer_list timer;
 
+
+#define DEFAULT_TIMEOUT_MS (100)
+#define DEFAULT_TIMEOUT_JIFFIES msecs_to_jiffies(DEFAULT_TIMEOUT_MS) 
 
 
 #define READ_CMD (0x00)
@@ -48,6 +56,7 @@ struct timer_list timer;
 static int spidev_probe(struct spi_device *spi);
 static int spidev_remove(struct spi_device *spi);
 static inline ssize_t spi_dev_sync_write(size_t len);
+static void timeout(struct timer_list *t);
 static int is_data;
 static u32 mode;
 
@@ -275,6 +284,8 @@ static inline ssize_t spi_dev_sync_write(size_t len)
 
     struct spi_message message;
     printk(KERN_ALERT "Inside the %s function\n", __FUNCTION__);
+
+
     spi_message_init(&message);
     spi_message_add_tail(&transfer, &message);
 
@@ -290,6 +301,8 @@ static ssize_t spi_dev_write(struct file *filp, const char __user * buf,
 
     unsigned long missing;
     printk(KERN_ALERT "Inside the %s function\n", __FUNCTION__);
+
+    mod_timer(&timer, DEFAULT_TIMEOUT_JIFFIES);
 
     /* specify write to arduino */
     *spi_dev->tx_buffer = WRITE_CMD;
@@ -484,6 +497,11 @@ static int spidev_remove(struct spi_device *spi)
     return 0;
 }
 
+static void timeout(struct timer_list *t){
+
+}
+
+
 
 
 /*******************************************************/
@@ -523,6 +541,8 @@ static int __init spi_dev_init(void)
     IRQflags = IRQF_TRIGGER_RISING;
     mode = DEFAULT_MODE;
     is_data = FALSE;
+
+    timer_setup(&timer, timeout, 0);
 
     status = register_chrdev(MAJOR_NUM, "spi_dev", &spi_dev_fops);
 
